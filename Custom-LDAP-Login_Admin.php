@@ -73,7 +73,7 @@ if (isset($_GET['tab'])) {
                         </td>
                         <td>
                             <label>
-                                <input type="checkbox" value="<?php $domain['id'] ?>" name="enable[]" <?php if($domain['enabled'] == 'true') echo "checked='checked'"; ?> />
+                                <input type="checkbox" value="<?php echo $domain['id'] ?>" name="enable[]" <?php if($domain['enabled'] == 'true') echo "checked='checked'"; ?> />
                             </label>
                         </td>
                     </tr>

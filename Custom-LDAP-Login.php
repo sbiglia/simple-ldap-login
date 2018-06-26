@@ -152,24 +152,24 @@ class CustomLDAPLogin
     function get_empty_domain()
     {
         return [
-                'id' => 0,
-                'name' => "",
-                'account_suffix' => "",
-                'base_dn' => "",
-                'domain_controllers' => [""],
-                'directory' => "ad",
-                'role' => "contributor",
-                'ol_login' => "uid",
-                'ol_group' => "cn",
-                'use_tls' => "false",
-                'ldap_port' => 389,
-                'ldap_version' => 3,
-                'create_users' => "false",
-                'enabled' => "false",
-                'search_sub_ous' => "false",
-                'group_base_dn' => "",
-                'login_domain' => "",
-                'groups' => [""]
+            'id' => 0,
+            'name' => "",
+            'account_suffix' => "",
+            'base_dn' => "",
+            'domain_controllers' => [""],
+            'directory' => "ad",
+            'role' => "contributor",
+            'ol_login' => "uid",
+            'ol_group' => "cn",
+            'use_tls' => "false",
+            'ldap_port' => 389,
+            'ldap_version' => 3,
+            'create_users' => "false",
+            'enabled' => "false",
+            'search_sub_ous' => "false",
+            'group_base_dn' => "",
+            'login_domain' => "",
+            'groups' => [""]
         ];
     }
 
@@ -321,30 +321,30 @@ class CustomLDAPLogin
         /*if (!isset($_REQUEST["{$this->prefix}setting"])) {
             return;
         }*/
-        if(!isset($_POST['save_the_cll'])){
+        if (!isset($_POST['save_the_cll'])) {
             return;
         }
 
-        if (wp_verify_nonce($_POST['save_the_cll'],'add_domain')) {
+        if (wp_verify_nonce($_POST['save_the_cll'], 'add_domain')) {
 
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
             $this->add_domain($request);
 
         } elseif (wp_verify_nonce($_POST['save_the_cll'], 'update_domains')) {
 
-            if(isset($_POST['deleteit'])){
+            if (isset($_POST['deleteit'])) {
                 $this->delete_domain($_POST['delete']);
-            }elseif(isset($_POST['updateit'])){
+            } elseif (isset($_POST['updateit'])) {
                 $this->update_domain($_POST['enable']);
             }
 
-        } elseif (wp_verify_nonce($_POST['save_the_cll'],'delete_domains')) {
+        } elseif (wp_verify_nonce($_POST['save_the_cll'], 'delete_domains')) {
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
-        } elseif (wp_verify_nonce($_POST['save_the_cll'],'enable_disable_domains')) {
+        } elseif (wp_verify_nonce($_POST['save_the_cll'], 'enable_disable_domains')) {
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
-        } elseif (wp_verify_nonce($_POST['save_the_cll'],'save_sso_settings')) {
+        } elseif (wp_verify_nonce($_POST['save_the_cll'], 'save_sso_settings')) {
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
-        } elseif (wp_verify_nonce($_POST['save_the_cll'],'save_user_settings')) {
+        } elseif (wp_verify_nonce($_POST['save_the_cll'], 'save_user_settings')) {
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
         }
         /*
@@ -464,26 +464,46 @@ class CustomLDAPLogin
         $this->edit_domain = $this->get_empty_domain();
         $this->set_settings_obj($this->settings);
 
-        add_settings_error("cll_settings_messages", "settings", 'New domain '.$data['name'].' added successfully.', 'updated');
+        add_settings_error("cll_settings_messages", "settings", 'New domain ' . $data['name'] . ' added successfully.', 'updated');
 
     }
 
     function update_domain($data)
     {
 
+        foreach ($this->settings['domains'] as &$domain) {
+            if(!isset($data)){
+                $domain['enabled'] = 'false';
+            }
+            else{
+
+                if(in_array($domain['id'], $data)){
+                    $domain['enabled'] = 'true';
+                }else{
+                    $domain['enabled'] = 'false';
+                }
+            }
+        }
+
+        $this->set_settings_obj($this->settings);
+
+        add_settings_error("cll_settings_messages", "settings", 'Domain(s) enable/disable status successfully updated.', 'updated');
+
     }
 
     function delete_domain($to_delete)
     {
-        foreach($to_delete as $delete) {
-            foreach($this->settings['domains'] as $key=> $domain) {
-                if($domain['id'] == $delete){
+        foreach ($to_delete as $delete) {
+            foreach ($this->settings['domains'] as $key => $domain) {
+                if ($domain['id'] == $delete) {
                     unset($this->settings['domains'][$key]);
                 }
             }
         }
 
         $this->set_settings_obj($this->settings);
+
+        add_settings_error("cll_settings_messages", "settings", 'Domain(s) successfully deleted.', 'updated');
     }
 
     function enable_disable_domains($data)
