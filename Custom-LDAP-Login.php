@@ -326,11 +326,18 @@ class CustomLDAPLogin
         }
 
         if (wp_verify_nonce($_POST['save_the_cll'],'add_domain')) {
+
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
             $this->add_domain($request);
+
         } elseif (wp_verify_nonce($_POST['save_the_cll'], 'update_domains')) {
-            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
-            //if(isset($_POST['deleteid']))
+
+            if(isset($_POST['deleteit'])){
+                $this->delete_domain($_POST['delete']);
+            }elseif(isset($_POST['updateit'])){
+                $this->update_domain($_POST['enable']);
+            }
+
         } elseif (wp_verify_nonce($_POST['save_the_cll'],'delete_domains')) {
             $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
         } elseif (wp_verify_nonce($_POST['save_the_cll'],'enable_disable_domains')) {
@@ -466,9 +473,17 @@ class CustomLDAPLogin
 
     }
 
-    function delete_domain($data)
+    function delete_domain($to_delete)
     {
+        foreach($to_delete as $delete) {
+            foreach($this->settings['domains'] as $key=> $domain) {
+                if($domain['id'] == $delete){
+                    unset($this->settings['domains'][$key]);
+                }
+            }
+        }
 
+        $this->set_settings_obj($this->settings);
     }
 
     function enable_disable_domains($data)
