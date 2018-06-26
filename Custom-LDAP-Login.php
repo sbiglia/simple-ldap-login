@@ -1,53 +1,64 @@
 <?php
 /*
-  Plugin Name: Simple LDAP Login
-  Plugin URI: http://clifgriffin.com/simple-ldap-login/
-  Description:  Authenticate WordPress against LDAP.
-  Version: 1.8.0
-  Author: Clif Griffin Development Inc.
-  Author URI: http://cgd.io
+  Plugin Name: Custom LDAP Login
+  Plugin URI: http://happycoderstudio.com/custom-ldap-login/
+  Description:  Adds multi-domain LDAP authentication to WP.
+  Version: 1.0.0
+  Author: Sebastian Biglia.
+  Author URI: http://happycoderstudio.com
  */
 
-class SimpleLDAPLogin {
+class CustomLDAPLogin
+{
 
-    private static $prefix_s = "sll_";
+    private static $prefix_s = "cldapl_";
     static $instance = false;
     var $prefix;
     var $settings = array();
     var $adldap;
     var $ldap;
     var $network_version = null;
-    var $version = "180";
+    var $version = "0.9";
+    var $errors = array();
+
+    var $edit_domain = array();
+
     // openssl constants
     private static $openssl_method = "AES-256-CBC";
 
-    private static function get_openssl_pass() {
+    private static function get_openssl_pass()
+    {
         return gethostname();
     }
 
-    public static function get_field_settings_s() {
-        return SimpleLDAPLogin::$prefix_s . "settings";
+    public static function get_field_settings_s()
+    {
+        return CustomLDAPLogin::$prefix_s . "settings";
     }
 
-    public function __construct() {
-        $this->prefix = SimpleLDAPLogin::$prefix_s;
+
+    public function __construct()
+    {
+        $this->edit_domain = $this->get_empty_domain();
+
+        $this->prefix = CustomLDAPLogin::$prefix_s;
         $this->settings = $this->get_settings_obj();
+        /*
+                if (trim($this->get_setting('directory')) == "ad") {
+                    require_once( plugin_dir_path(__FILE__) . "/includes/adLDAP.php" );
 
-        if (trim($this->get_setting('directory')) == "ad") {
-            require_once( plugin_dir_path(__FILE__) . "/includes/adLDAP.php" );
+                    try {
+                        $this->create_adldap();
+                    } catch (adLDAPException $e) {
+                        // Disable SSO
+                        $this->set_setting('sso_enabled', FALSE);
 
-            try {
-                $this->create_adldap();
-            } catch (adLDAPException $e) {
-                // Disable SSO
-                $this->set_setting('sso_enabled', FALSE);
+                        // try create adldap again
+                        $this->create_adldap();
+                    }
+                }*/
 
-                // try create adldap again
-                $this->create_adldap();
-            }
-        }
-
-        add_action('admin_init', array($this, 'save_settings'));
+        add_action('admin_init', array($this, 'handle_request'));
 
         if ($this->is_network_version()) {
             add_action('network_admin_menu', array($this, 'menu'));
@@ -57,7 +68,7 @@ class SimpleLDAPLogin {
 
 
         if (str_true($this->get_setting('enabled'))) {
-            add_filter('authenticate', array($this, 'authenticate'), 1, 3);
+            //add_filter('authenticate', array($this, 'authenticate'), 1, 3);
         }
 
         register_activation_hook(__FILE__, array($this, 'activate'));
@@ -73,21 +84,23 @@ class SimpleLDAPLogin {
         }
     }
 
-    function create_adldap() {
+    function create_adldap()
+    {
         $this->adldap = new adLDAP(
-                array(
-            "account_suffix" => trim($this->get_setting('account_suffix')),
-            "use_tls" => str_true($this->get_setting('use_tls')),
-            "base_dn" => trim($this->get_setting('base_dn')),
-            "domain_controllers" => (array) $this->get_setting('domain_controllers'),
-            "ad_port" => (int) $this->get_setting('ldap_port'),
-            "ad_username" => $this->is_sso_enabled() ? $this->get_setting('sso_search_user') : NULL,
-            "ad_password" => $this->is_sso_enabled() ? $this->get_sso_search_user_pass() : NULL
-                )
+            array(
+                "account_suffix" => trim($this->get_setting('account_suffix')),
+                "use_tls" => str_true($this->get_setting('use_tls')),
+                "base_dn" => trim($this->get_setting('base_dn')),
+                "domain_controllers" => (array)$this->get_setting('domain_controllers'),
+                "ad_port" => (int)$this->get_setting('ldap_port'),
+                "ad_username" => $this->is_sso_enabled() ? $this->get_setting('sso_search_user') : NULL,
+                "ad_password" => $this->is_sso_enabled() ? $this->get_sso_search_user_pass() : NULL
+            )
         );
     }
 
-    private function is_valid_call_sso() {
+    private function is_valid_call_sso()
+    {
         //  Skip login page
         if (parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) === "/wp-login.php") {
             return false;
@@ -96,7 +109,8 @@ class SimpleLDAPLogin {
     }
 
     // SSO Implementation
-    function login_sso() {
+    function login_sso()
+    {
         // Respect current login
         if (!is_user_logged_in() && $this->is_sso_configuration_ok() && $this->is_valid_call_sso()) {
             // Automatic login 
@@ -107,31 +121,18 @@ class SimpleLDAPLogin {
         }
     }
 
-    public static function getInstance() {
+    public static function getInstance()
+    {
         if (!self::$instance) {
             self::$instance = new self;
         }
         return self::$instance;
     }
 
-    function activate() {
+    function activate()
+    {
         // Default settings
-        $this->add_setting('account_suffix', "@mydomain.org");
-        $this->add_setting('base_dn', "DC=mydomain,DC=org");
-        $this->add_setting('domain_controllers', array("dc01.mydomain.local"));
-        $this->add_setting('directory', "ad");
-        $this->add_setting('role', "contributor");
-        $this->add_setting('high_security', "true");
-        $this->add_setting('ol_login', "uid");
-        $this->add_setting('ol_group', "cn");
-        $this->add_setting('use_tls', "false");
-        $this->add_setting('ldap_port', 389);
-        $this->add_setting('ldap_version', 3);
-        $this->add_setting('create_users', "false");
-        $this->add_setting('enabled', "false");
-        $this->add_setting('search_sub_ous', "false");
-        $this->add_setting('group_dn', "");
-        $this->add_setting('group_uid', "memberUid");
+        $this->add_setting('domains', array());
 
         // SSO settings
         $this->add_setting('sso_enabled', "false");
@@ -148,117 +149,107 @@ class SimpleLDAPLogin {
         $this->add_setting('meta_data_suffix_wp', 'wp');
     }
 
-    function upgrade_settings() {
-        if ($this->get_setting('version') === false) {
-            $this->set_setting('enabled', 'true');
+    function get_empty_domain()
+    {
+        return [
+                'id' => 0,
+                'name' => "",
+                'account_suffix' => "",
+                'base_dn' => "",
+                'domain_controllers' => [""],
+                'directory' => "ad",
+                'role' => "contributor",
+                'ol_login' => "uid",
+                'ol_group' => "cn",
+                'use_tls' => "false",
+                'ldap_port' => 389,
+                'ldap_version' => 3,
+                'create_users' => "false",
+                'enabled' => "false",
+                'search_sub_ous' => "false",
+                'group_base_dn' => "",
+                'login_domain' => "",
+                'groups' => [""]
+        ];
+    }
 
-            if ($this->is_network_version()) {
-                $account_suffix = get_site_option('simpleldap_account_suffix');
-                $simpleldap_base_dn = get_site_option('simpleldap_base_dn');
-                $simpleldap_domain_controllers = get_site_option('simpleldap_domain_controllers');
-                $simpleldap_directory_type = get_site_option('simpleldap_directory_type');
-                $simpleldap_group = get_site_option('simpleldap_group');
-                $simpleldap_account_type = get_site_option('simpleldap_account_type');
-                $simpleldap_ol_login = get_site_option('simpleldap_ol_login');
-                $simpleldap_use_tls = get_site_option('simpleldap_use_tls');
-                $simpleldap_login_mode = get_site_option('simpleldap_login_mode');
-                $simpleldap_security_mode = get_site_option('simpleldap_security_mode');
-            } else {
-                $account_suffix = get_option('simpleldap_account_suffix');
-                $simpleldap_base_dn = get_option('simpleldap_base_dn');
-                $simpleldap_domain_controllers = get_option('simpleldap_domain_controllers');
-                $simpleldap_directory_type = get_option('simpleldap_directory_type');
-                $simpleldap_group = get_option('simpleldap_group');
-                $simpleldap_account_type = get_option('simpleldap_account_type');
-                $simpleldap_ol_login = get_option('simpleldap_ol_login');
-                $simpleldap_use_tls = get_option('simpleldap_use_tls');
-                $simpleldap_login_mode = get_option('simpleldap_login_mode');
-                $simpleldap_security_mode = get_option('simpleldap_security_mode');
-            }
-
-            $this->set_setting('account_suffix', $account_suffix);
-            $this->set_setting('base_dn', $simpleldap_base_dn);
-            $this->set_setting('domain_controllers', $simpleldap_domain_controllers);
-            $this->set_setting('groups', (array) $simpleldap_group);
-            $this->set_setting('role', $simpleldap_account_type);
-            $this->set_setting('ol_login', $simpleldap_ol_login);
-            $this->set_setting('use_tls', str_true($simpleldap_use_tls));
-
-            // Directory Type
-            if ($simpleldap_directory_type == "directory_ad") {
-                $this->set_setting('directory', 'ad');
-            } else {
-                $this->set_setting('directory', 'ol');
-            }
-
-            // Create User Setting
-            $create_users = false;
-            if ($simpleldap_login_mode == "mode_create_all" || $simpleldap_login_mode == "mode_create_group") {
-                $this->set_setting('create_users', true);
-            }
-
-            // High Security Setting
-            $high_security = false;
-            if ($simpleldap_security_mode == "security_high") {
-                $this->set_setting('high_security', true);
-            }
-        }
-
-        if (trim($this->get_setting('version')) < $this->version || $this->get_setting('version') === false) {
-            $this->add_setting('search_sub_ous', "false");
-            $this->add_setting('group_base_dn', "");
-            $this->add_setting('group_uid', "memberUid");
-
-            // SSO settings
-            $this->add_setting('sso_enabled', "false");
-            $this->add_setting('sso_search_user', "");
-            $this->add_setting('sso_search_user_password', "");
-
-            // User attribute settings
-            $this->add_setting('user_first_name_attribute', "givenname");
-            $this->add_setting('user_last_name_attribute', "sn");
-            $this->add_setting('user_email_attribute', "mail");
-            $this->add_setting('user_url_attribute', "wwwhomepage");
-            $this->add_setting('user_meta_data', array());
-            $this->add_setting('meta_data_suffix_ldap', 'ldap');
-            $this->add_setting('meta_data_suffix_wp', 'wp');
-        }
+    function upgrade_settings()
+    {
+        /*
+        $currentVersion = $this->get_setting('version');
 
         // Update version
         $this->set_setting('version', $this->version);
+
+        if ($currentVersion == "0.8") {
+            $this->set_setting('domains', array());
+        } else {
+
+            // Default settings
+            $defaultDomain = [
+                [
+                    'id' => 0,
+                    'domain_data' => [
+                        'name' => 'default',
+                        'account_suffix' => "@mydomain.org",
+                        'base_dn' => "DC=mydomain,DC=org",
+                        'domain_controller' => ["dc01.mydomain.local"],
+                        'directory' => "ad",
+                        'role' => "contributor",
+                        'ol_login' => "uid",
+                        'ol_group' => "cn",
+                        'use_tls' => "false",
+                        'ldap_port' => 389,
+                        'ldap_version' => 3,
+                        'create_users' => "false",
+                        'enabled' => "false",
+                        'search_sub_ous' => "false",
+                        'group_dn' => "",
+                        'group_uid' => "memberUid"
+                    ]
+                ]
+            ];
+
+            $this->add_setting('domains', $defaultDomain);
+        }*/
     }
 
-    function menu() {
+    function menu()
+    {
         if ($this->is_network_version()) {
             add_submenu_page(
-                    "settings.php", "Simple LDAP Login", "Simple LDAP Login", 'manage_network_plugins', "simple-ldap-login", array($this, 'admin_page')
+                "settings.php", "Custom LDAP Login", "Custom LDAP Login", 'manage_network_plugins', "simple-ldap-login", array($this, 'admin_page')
             );
         } else {
-            add_options_page("Simple LDAP Login", "Simple LDAP Login", 'manage_options', "simple-ldap-login", array($this, 'admin_page'));
+            add_options_page("Custom LDAP Login", "Custom LDAP Login", 'manage_options', "simple-ldap-login", array($this, 'admin_page'));
         }
     }
 
-    function admin_page() {
-        include 'Simple-LDAP-Login-Admin.php';
+    function admin_page()
+    {
+        include 'Custom-LDAP-Login_Admin.php';
     }
 
-    function get_settings_obj() {
+    function get_settings_obj()
+    {
         if ($this->is_network_version()) {
-            return get_site_option(SimpleLDAPLogin::get_field_settings_s(), false);
+            return get_site_option(CustomLDAPLogin::get_field_settings_s(), false);
         } else {
-            return get_option(SimpleLDAPLogin::get_field_settings_s(), false);
+            return get_option(CustomLDAPLogin::get_field_settings_s(), false);
         }
     }
 
-    function set_settings_obj($newobj) {
+    function set_settings_obj($newobj)
+    {
         if ($this->is_network_version()) {
-            return update_site_option(SimpleLDAPLogin::get_field_settings_s(), $newobj);
+            return update_site_option(CustomLDAPLogin::get_field_settings_s(), $newobj);
         } else {
-            return update_option(SimpleLDAPLogin::get_field_settings_s(), $newobj);
+            return update_option(CustomLDAPLogin::get_field_settings_s(), $newobj);
         }
     }
 
-    function set_setting($option = false, $newvalue) {
+    function set_setting($option = false, $newvalue)
+    {
         if ($option === false)
             return false;
 
@@ -267,14 +258,16 @@ class SimpleLDAPLogin {
         return $this->set_settings_obj($this->settings);
     }
 
-    function get_setting($option = false) {
+    function get_setting($option = false)
+    {
         if ($option === false || !isset($this->settings[$option]))
             return false;
 
         return apply_filters($this->prefix . 'get_setting', $this->settings[$option], $option);
     }
 
-    function add_setting($option = false, $newvalue) {
+    function add_setting($option = false, $newvalue)
+    {
         if ($option === false)
             return false;
 
@@ -285,20 +278,22 @@ class SimpleLDAPLogin {
         }
     }
 
-    function get_field_name($setting, $type = 'string') {
+    function get_field_name($setting, $type = 'string')
+    {
         return "{$this->prefix}setting[$setting][$type]";
     }
 
-    function save_settings() {
-        if (isset($_REQUEST["{$this->prefix}setting"]) && check_admin_referer('save_sll_settings', 'save_the_sll')) {
+    function save_settings()
+    {
+        if (isset($_REQUEST["{$this->prefix}setting"]) && check_admin_referer('add_domain', 'save_the_cll')) {
             $new_settings = stripslashes_deep($_REQUEST["{$this->prefix}setting"]);
 
             foreach ($new_settings as $setting_name => $setting_value) {
                 foreach ($setting_value as $type => $value) {
                     if ($setting_name == 'user_meta_data') {
                         $this->set_setting($setting_name, array_map(function ($attr) {
-                                    return explode(':', trim($attr));
-                                }, array_filter(preg_split('/\r\n|\n|\r|;/', trim($value)))));
+                            return explode(':', trim($attr));
+                        }, array_filter(preg_split('/\r\n|\n|\r|;/', trim($value)))));
                     } elseif ($type == "array") {
                         $this->set_setting($setting_name, explode(";", $value));
                     } elseif ($type == "password") {
@@ -321,7 +316,185 @@ class SimpleLDAPLogin {
         }
     }
 
-    function saved_admin_notice() {
+    function handle_request()
+    {
+        /*if (!isset($_REQUEST["{$this->prefix}setting"])) {
+            return;
+        }*/
+        if(!isset($_POST['save_the_cll'])){
+            return;
+        }
+
+        if (wp_verify_nonce($_POST['save_the_cll'],'add_domain')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+            $this->add_domain($request);
+        } elseif (wp_verify_nonce($_POST['save_the_cll'], 'update_domains')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+            //if(isset($_POST['deleteid']))
+        } elseif (wp_verify_nonce($_POST['save_the_cll'],'delete_domains')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+        } elseif (wp_verify_nonce($_POST['save_the_cll'],'enable_disable_domains')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+        } elseif (wp_verify_nonce($_POST['save_the_cll'],'save_sso_settings')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+        } elseif (wp_verify_nonce($_POST['save_the_cll'],'save_user_settings')) {
+            $request = $this->parse_request_data($_REQUEST["{$this->prefix}setting"]);
+        }
+        /*
+        $new_settings = stripslashes_deep($_REQUEST["{$this->prefix}setting"]);
+
+        foreach ($new_settings as $setting_name => $setting_value) {
+            foreach ($setting_value as $type => $value) {
+                if ($setting_name == 'user_meta_data') {
+                    $this->set_setting($setting_name, array_map(function ($attr) {
+                        return explode(':', trim($attr));
+                    }, array_filter(preg_split('/\r\n|\n|\r|;/', trim($value)))));
+                } elseif ($type == "array") {
+                    $this->set_setting($setting_name, explode(";", $value));
+                } elseif ($type == "password") {
+                    if (!empty($value)) {
+                        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length(self::$openssl_method));
+                        $encrypt = openssl_encrypt($value, self::$openssl_method, self::get_openssl_pass(), 0, $iv);
+                        $this->set_setting($setting_name, "{$encrypt};" . bin2hex($iv));
+                    }
+                } else {
+                    $this->set_setting($setting_name, $value);
+                }
+            }
+        }
+
+        if ($this->is_network_version()) {
+            add_action('network_admin_notices', array($this, 'saved_admin_notice'));
+        } else {
+            add_action('admin_notices', array($this, 'saved_admin_notice'));
+        }*/
+
+    }
+
+    function parse_request_data($request)
+    {
+        $parsed_array = array();
+
+        foreach ($request as $setting_name => $setting_value) {
+            foreach ($setting_value as $type => $value) {
+                if ($setting_name == 'user_meta_data') {
+                    $parsed_array[$setting_name] = array_map(function ($attr) {
+                        return explode(':', trim($attr));
+                    }, array_filter(preg_split('/\r\n|\n|\r|;/', trim($value))));
+                } elseif ($type == "array") {
+                    $parsed_array[$setting_name] = explode(";", $value);
+                } elseif ($type == "password") {
+                    if (!empty($value)) {
+                        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length(self::$openssl_method));
+                        $encrypt = openssl_encrypt($value, self::$openssl_method, self::get_openssl_pass(), 0, $iv);
+                        $parsed_array[$setting_name] = "{$encrypt};" . bin2hex($iv);
+                    }
+                } else {
+                    $parsed_array[$setting_name] = $value;
+                }
+            }
+        }
+
+        return $parsed_array;
+
+    }
+
+    function update_sso_settings($data)
+    {
+
+    }
+
+    function add_domain($data)
+    {
+
+        $this->errors = array();
+
+        $this->edit_domain['name'] = $data['name'];
+        $this->edit_domain['account_suffix'] = $data['account_suffix'];
+        $this->edit_domain['base_dn'] = $data['base_dn'];
+        $this->edit_domain['domain_controllers'] = $data['domain_controllers'];
+        $this->edit_domain['directory'] = $data['directory'];
+        $this->edit_domain['role'] = $data['role'];
+        $this->edit_domain['ol_login'] = $data['ol_login'];
+        $this->edit_domain['ol_group'] = $data['ol_group'];
+        $this->edit_domain['use_tls'] = $data['use_tls'];
+        $this->edit_domain['ldap_port'] = $data['ldap_port'];
+        $this->edit_domain['ldap_version'] = $data['ldap_version'];
+        $this->edit_domain['create_users'] = $data['create_users'];
+        $this->edit_domain['search_sub_ous'] = $data['search_sub_ous'];
+        $this->edit_domain['group_base_dn'] = $data['group_base_dn'];
+        $this->edit_domain['login_domain'] = $data['login_domain'];
+        $this->edit_domain['groups'] = $data['groups'];
+
+        if (!isset($data['name']) || empty($data['name'])) {
+            $this->errors[] = ['message' => 'Domain name not set.', 'type' => 'error'];
+        }
+
+        if (!isset($data['base_dn']) || empty($data['base_dn'])) {
+            $this->errors[] = ['message' => 'Base DN name not set.', 'type' => 'error'];
+        }
+
+        if (!isset($data['account_suffix']) || empty($data['account_suffix'])) {
+            $this->errors[] = ['message' => 'Account suffix not set.', 'type' => 'error'];
+        }
+
+        if (!isset($data['domain_controllers']) || count($data['domain_controllers']) == 0 || empty($data['domain_controllers'][0])) {
+            $this->errors[] = ['message' => 'At least one domain controller must be set.', 'type' => 'error'];
+        }
+
+        if (count($this->errors) > 0) {
+            foreach ($this->errors as $error) {
+                add_settings_error("cll_settings_messages", "settings", $error['message'], $error['type']);
+            }
+
+            //settings_errors('cll_settings_messages');
+            return;
+        }
+
+        $this->edit_domain['id'] = $this->get_next_domain_id();
+        $this->edit_domain['enabled'] = 'true';
+        $this->settings['domains'][] = $this->edit_domain;
+        $this->edit_domain = $this->get_empty_domain();
+        $this->set_settings_obj($this->settings);
+
+        add_settings_error("cll_settings_messages", "settings", 'New domain '.$data['name'].' added successfully.', 'updated');
+
+    }
+
+    function update_domain($data)
+    {
+
+    }
+
+    function delete_domain($data)
+    {
+
+    }
+
+    function enable_disable_domains($data)
+    {
+
+    }
+
+    function update_user_settings($data)
+    {
+
+    }
+
+    function get_next_domain_id()
+    {
+        $domain_id = 0;
+
+        foreach ($this->settings['domains'] as $domain) {
+            if ($domain['id'] > $domain_id)
+                $domain_id = $domain['id'];
+        }
+
+        return $domain_id + 1;
+    }
+
+    function saved_admin_notice()
+    {
         if (str_true($this->get_setting('enabled'))) {
             ?>
             <div class="notice notice-success is-dismissible">
@@ -337,7 +510,8 @@ class SimpleLDAPLogin {
         }
     }
 
-    function authenticate($user, $username, $password, $sso_auth = FALSE) {
+    function authenticate($user, $username, $password, $sso_auth = FALSE)
+    {
         // If previous authentication succeeded, respect that
         if (is_a($user, 'WP_User')) {
             return $user;
@@ -383,7 +557,7 @@ class SimpleLDAPLogin {
 
                 $user = get_user_by('login', $username);
 
-                if (!$user || ( strtolower($user->user_login) !== strtolower($username) )) {
+                if (!$user || (strtolower($user->user_login) !== strtolower($username))) {
                     if (!str_true($this->get_setting('create_users'))) {
                         do_action('wp_login_failed', $username);
                         return $this->ldap_auth_error('invalid_username', __('<strong>Simple LDAP Login Error</strong>: LDAP credentials are correct, but there is no matching WordPress user and user creation is not enabled.'));
@@ -443,7 +617,8 @@ class SimpleLDAPLogin {
         return false;
     }
 
-    function get_domain_username($username) {
+    function get_domain_username($username)
+    {
         // Format username with domain prefix, if login_domain is set
         $login_domain = trim($this->get_setting('login_domain'));
 
@@ -454,15 +629,16 @@ class SimpleLDAPLogin {
         return $username;
     }
 
-    function ldap_auth($username, $password, $directory, $sso_auth) {
+    function ldap_auth($username, $password, $directory, $sso_auth)
+    {
         $result = false;
 
         if ($directory == "ad") {
             $result = $this->adldap->authenticate($this->get_domain_username($username), $password, FALSE, $sso_auth);
         } elseif ($directory == "ol") {
             // TODO - implement SSO to others directories 
-            $this->ldap = ldap_connect(join(' ', (array) $this->get_setting('domain_controllers')), (int) $this->get_setting('ldap_port'));
-            ldap_set_option($this->ldap, LDAP_OPT_PROTOCOL_VERSION, (int) $this->get_setting('ldap_version'));
+            $this->ldap = ldap_connect(join(' ', (array)$this->get_setting('domain_controllers')), (int)$this->get_setting('ldap_port'));
+            ldap_set_option($this->ldap, LDAP_OPT_PROTOCOL_VERSION, (int)$this->get_setting('ldap_version'));
             if (str_true($this->get_setting('use_tls'))) {
                 ldap_start_tls($this->ldap);
             }
@@ -495,14 +671,16 @@ class SimpleLDAPLogin {
      * @param string $message
      * @return WP_Error
      */
-    function ldap_auth_error($code, $message) {
+    function ldap_auth_error($code, $message)
+    {
         remove_all_filters('authenticate');
         return new WP_Error($code, $message);
     }
 
-    function user_has_groups($username = false, $directory) {
+    function user_has_groups($username = false, $directory)
+    {
         $result = false;
-        $groups = (array) $this->get_setting('groups');
+        $groups = (array)$this->get_setting('groups');
         $groups = array_filter($groups);
 
         if (!$username) {
@@ -536,13 +714,14 @@ class SimpleLDAPLogin {
                 $user_groups[] = is_array($ldapgroups[$i][$this->get_setting('ol_group')]) ? $ldapgroups[$i][$this->get_setting('ol_group')][0] : $ldapgroups[$i][$this->get_setting('ol_group')];
             }
 
-            $result = (bool) (count(array_intersect($user_groups, $groups)) > 0);
+            $result = (bool)(count(array_intersect($user_groups, $groups)) > 0);
         }
 
         return apply_filters($this->prefix . 'user_has_groups', $result);
     }
 
-    function get_user_data($username, $directory) {
+    function get_user_data($username, $directory)
+    {
         $user_data = array(
             'user_pass' => md5(microtime()),
             'user_login' => $username,
@@ -601,7 +780,8 @@ class SimpleLDAPLogin {
         return apply_filters($this->prefix . 'user_data', $user_data);
     }
 
-    function get_user_meta_data($username, $directory) {
+    function get_user_meta_data($username, $directory)
+    {
         $meta_data_list = $this->get_setting('user_meta_data');
         if (empty($meta_data_list)) {
             return false;
@@ -640,31 +820,35 @@ class SimpleLDAPLogin {
         return apply_filters($this->prefix . 'user_meta_data', $user_meta_data);
     }
 
-    function meta_data_filter($value, $type) {
+    function meta_data_filter($value, $type)
+    {
         if ($type === "number") {
             return preg_replace("/[^0-9]/", "", $value);
         }
         return $value;
     }
 
-    function get_meta_key_ldap($meta_key) {
+    function get_meta_key_ldap($meta_key)
+    {
         return "{$meta_key}_{$this->get_setting('meta_data_suffix_ldap')}";
     }
 
-    function get_meta_key_wp($meta_key) {
+    function get_meta_key_wp($meta_key)
+    {
         return "{$meta_key}_{$this->get_setting('meta_data_suffix_wp')}";
     }
 
     /**
      * Returns whether this plugin is currently network activated
      */
-    function is_network_version() {
+    function is_network_version()
+    {
         if ($this->network_version !== null) {
             return $this->network_version;
         }
 
         if (!function_exists('is_plugin_active_for_network')) {
-            require_once( ABSPATH . '/wp-admin/includes/plugin.php' );
+            require_once(ABSPATH . '/wp-admin/includes/plugin.php');
         }
 
         if (is_plugin_active_for_network(plugin_basename(__FILE__))) {
@@ -678,7 +862,8 @@ class SimpleLDAPLogin {
     /**
      * clean ldap filter values
      */
-    function esc_ldap_filter_val($str = '') {
+    function esc_ldap_filter_val($str = '')
+    {
         if (function_exists('ldap_escape')) {
             return ldap_escape($str, '', LDAP_ESCAPE_FILTER);
         } else {
@@ -689,19 +874,23 @@ class SimpleLDAPLogin {
         }
     }
 
-    function is_sso_enabled() {
+    function is_sso_enabled()
+    {
         return str_true($this->get_setting('sso_enabled'));
     }
 
-    function is_sso_configuration_ok() {
+    function is_sso_configuration_ok()
+    {
         return isset($_SERVER['REMOTE_USER']) && !empty($_SERVER['REMOTE_USER']);
     }
 
-    function get_sso_logged_user() {
+    function get_sso_logged_user()
+    {
         return $this->is_sso_configuration_ok() ? $_SERVER['REMOTE_USER'] : FALSE;
     }
 
-    function sso_search_user_bind_test() {
+    function sso_search_user_bind_test()
+    {
         $directory = $this->get_setting('directory');
         if ($directory == "ad") {
             return $this->adldap->authenticate($this->get_domain_username($this->get_setting('sso_search_user')), $this->get_sso_search_user_pass());
@@ -712,7 +901,8 @@ class SimpleLDAPLogin {
         }
     }
 
-    private function get_sso_search_user_pass() {
+    private function get_sso_search_user_pass()
+    {
         $cryptPass = explode(";", $this->get_setting('sso_search_user_password'));
         if (count($cryptPass) != 2) {
             return ""; // wrong pass
@@ -741,7 +931,8 @@ if (!function_exists('str_true')) {
      * @param array $istrue A list strings that are true
      * @return boolean The boolean value of the provided text
      * */
-    function str_true($string, $istrue = array('yes', 'y', 'true', '1', 'on', 'open')) {
+    function str_true($string, $istrue = array('yes', 'y', 'true', '1', 'on', 'open'))
+    {
         if (is_array($string)) {
             return false;
         }
@@ -753,4 +944,4 @@ if (!function_exists('str_true')) {
 
 }
 
-$SimpleLDAPLogin = SimpleLDAPLogin::getInstance();
+$CustomLDAPLogin = CustomLDAPLogin::getInstance();
