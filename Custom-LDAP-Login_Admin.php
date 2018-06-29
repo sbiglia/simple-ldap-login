@@ -10,107 +10,126 @@ if (isset($_GET['tab'])) {
 ?>
 <div class="wrap" xmlns="http://www.w3.org/1999/html">
 
-    <?php if($active_tab != "domains-edit"):?>
-    <div id="icon-themes" class="icon32"></div>
-    <h2>Simple LDAP Login Settings</h2>
+    <?php if ($active_tab != "domains-edit"): ?>
+        <div id="icon-themes" class="icon32"></div>
+        <h2>Simple LDAP Login Settings</h2>
 
-    <h2 class="nav-tab-wrapper">
-        <a href="<?php echo esc_url(add_query_arg(array('tab' => 'domains'), $_SERVER['REQUEST_URI'])); ?>"
-           class="nav-tab <?php echo $active_tab == 'domains' ? 'nav-tab-active' : ''; ?>">Domains</a>
-        <a href="<?php echo esc_url(add_query_arg(array('tab' => 'user'), $_SERVER['REQUEST_URI'])); ?>"
-           class="nav-tab <?php echo $active_tab == 'user' ? 'nav-tab-active' : ''; ?>">User</a>
-        <a href="<?php echo esc_url(add_query_arg(array('tab' => 'sso'), $_SERVER['REQUEST_URI'])); ?>"
-           class="nav-tab <?php echo $active_tab == 'sso' ? 'nav-tab-active' : ''; ?>">SSO</a>
-        <a href="<?php echo esc_url(add_query_arg(array('tab' => 'help'), $_SERVER['REQUEST_URI'])); ?>"
-           class="nav-tab <?php echo $active_tab == 'help' ? 'nav-tab-active' : ''; ?>">Help</a>
-    </h2>
-    <?php endif;?>
+        <h2 class="nav-tab-wrapper">
+            <a href="<?php echo esc_url(add_query_arg(array('tab' => 'domains'), $_SERVER['REQUEST_URI'])); ?>"
+               class="nav-tab <?php echo $active_tab == 'domains' ? 'nav-tab-active' : ''; ?>">Domains</a>
+            <a href="<?php echo esc_url(add_query_arg(array('tab' => 'user'), $_SERVER['REQUEST_URI'])); ?>"
+               class="nav-tab <?php echo $active_tab == 'user' ? 'nav-tab-active' : ''; ?>">User</a>
+            <!--<a href="<?php echo esc_url(add_query_arg(array('tab' => 'sso'), $_SERVER['REQUEST_URI'])); ?>"
+               class="nav-tab <?php echo $active_tab == 'sso' ? 'nav-tab-active' : ''; ?>">SSO</a>-->
+            <a href="<?php echo esc_url(add_query_arg(array('tab' => 'help'), $_SERVER['REQUEST_URI'])); ?>"
+               class="nav-tab <?php echo $active_tab == 'help' ? 'nav-tab-active' : ''; ?>">Help</a>
+        </h2>
+    <?php endif; ?>
     <?php if ($active_tab == "domains" || $active_tab == "domains-edit"): ?>
-        <?php if($active_tab == "domains"):?>
-        <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
-            <?php wp_nonce_field('update_domains', 'save_the_cll'); ?>
-            <input type="hidden" value="update_domains" name="csl_action"/>
-            <div class="tablenav">
-                <div class="alignleft">
-                    <input type="submit" class="button-secondary delete" name="deleteit" value="Delete"/>
-                    <input type="submit" class="button-secondary delete" name="updateit" value="Update"/>
+        <?php if ($active_tab == "domains"): ?>
+            <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
+                <?php wp_nonce_field('update_domains', 'save_the_cll'); ?>
+                <input type="hidden" value="update_domains" name="csl_action"/>
+                <div class="tablenav">
+                    <div class="alignleft">
+                        <input type="submit" class="button-secondary delete" name="deleteit" value="Delete"/>
+                        <input type="submit" class="button-secondary delete" name="updateit" value="Update"/>
+                    </div>
+                    <br class="clear"/>
                 </div>
-                <br class="clear"/>
-            </div>
-            <table class="widefat">
-                <thead>
-                <tr class="thead">
-                    <th scope="col"></th>
-                    <th scope="col">Name</th>
-                    <th scope="col">AccountSuffix</th>
-                    <th scope="col">Domain Controller</th>
-                    <th scope="col">Create User</th>
-                    <th scope="col">Enabled</th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php
-                $domains = $this->get_setting('domains');
-                foreach ($domains as $domain) {
-                    ?>
-                    <tr class="alternate" id="group-<?php echo $domain['id'] ?>">
-                        <th class="check-column">
-                            <label>
-                                <input type="checkbox" value="<?php echo $domain['id'] ?>" name="delete[]"/>
-                            </label>
-                        </th>
-                        <td>
-                            <?php echo $domain['name'] ?>
-                        </td>
-                        <td>
-                            <?php echo $domain['account_suffix'] ?>
-                        </td>
-                        <td>
-                            <?php echo $domain['base_dn'] ?>
-                        </td>
-                        <td>
-                            <?php echo $domain['create_users'] ? 'true' : 'false';  ?>
-                        </td>
-                        <td>
-                            <label>
-                                <input type="checkbox" value="<?php echo $domain['id'] ?>" name="enable[]" <?php if($domain['enabled'] == 'true') echo "checked='checked'"; ?> />
-                            </label>
-                        </td>
+                <table class="widefat">
+                    <thead>
+                    <tr class="thead">
+                        <th scope="col"></th>
+                        <th scope="col">Name</th>
+                        <th scope="col">AccountSuffix</th>
+                        <th scope="col">Base DN</th>
+                        <th scope="col">Domain Controller</th>
+                        <th scope="col">Create User</th>
+                        <th scope="col">Enabled</th>
                     </tr>
+                    </thead>
+                    <tbody>
                     <?php
-                }
-                ?>
-                </tbody>
-            </table>
-            <div class="tablenav">
-                <div class="alignleft">
-                    <input type="submit" class="button-secondary delete" name="deleteit" value="Delete"/>
-                    <input type="submit" class="button-secondary delete" name="updateit" value="Update"/>
+                    $domains = $this->get_setting('domains');
+                    foreach ($domains as $domain) {
+                        ?>
+                        <tr class="alternate" id="group-<?php echo $domain['id'] ?>">
+                            <th class="check-column">
+                                <label>
+                                    <input type="checkbox" value="<?php echo $domain['id'] ?>" name="delete[]"/>
+                                </label>
+                            </th>
+                            <td>
+                                <?php
+                                $link = esc_url(add_query_arg(['tab' => 'domains-edit', 'id' => $domain['id']]));
+                                ?>
+                                <strong><a href="<?php echo $link; ?>"><?php echo $domain['name'] ?></a></strong>
+                            </td>
+                            <td>
+                                <?php echo $domain['account_suffix'] ?>
+                            </td>
+                            <td>
+                                <?php echo $domain['base_dn'] ?>
+                            </td>
+                            <td>
+                                <?php echo esc_attr(join(';', (array)$domain['domain_controllers'])); ?>
+                            </td>
+                            <td>
+                                <?php echo $domain['create_users'] ? 'true' : 'false'; ?>
+                            </td>
+                            <td>
+                                <label>
+                                    <input type="checkbox" value="<?php echo $domain['id'] ?>"
+                                           name="enable[]" <?php if ($domain['enabled'] == 'true') echo "checked='checked'"; ?> />
+                                </label>
+                            </td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                    </tbody>
+                </table>
+                <div class="tablenav">
+                    <div class="alignleft">
+                        <input type="submit" class="button-secondary delete" name="deleteit" value="Delete"/>
+                        <input type="submit" class="button-secondary delete" name="updateit" value="Update"/>
+                    </div>
+                    <br class="clear"/>
                 </div>
-                <br class="clear"/>
-            </div>
-        </form>
-        <?php endif;?>
+            </form>
+        <?php endif; ?>
         <div class="postbox">
             <h2 style="margin-left: 17px"><?php echo $active_tab == 'domains-edit' ? 'Edit Domain' : 'Add Domain'; ?></h2>
             <div class="inside">
                 <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
                     <?php
-                    wp_nonce_field('add_domain', 'save_the_cll');
-                    $domain_to_edit =$CustomLDAPLogin->edit_domain;
+                    if ($active_tab == 'domains-edit' && isset($_GET['id'])) {
+                        wp_nonce_field('edit_domain', 'save_the_cll');
+                        if ($CustomLDAPLogin->edit_domain['id'] == $_GET['id']) {
+                            $domain_to_edit = $CustomLDAPLogin->edit_domain;
+                        } else {
+                            $domain_to_edit = $CustomLDAPLogin->settings['domains'][array_search($_GET['id'], array_column($CustomLDAPLogin->settings['domains'], 'id'))];
+                        }
+                    } else {
+                        wp_nonce_field('add_domain', 'save_the_cll');
+                        $domain_to_edit = $CustomLDAPLogin->edit_domain;
+                    }
                     ?>
                     <table>
                         <tbody>
                         <tr>
                             <td>
                                 <div class="postbox" style="margin-bottom: 0px">
-                                    <div class="inside" >
+                                    <div class="inside">
                                         <table class="form-table">
                                             <thead>
                                             <tr>
                                                 <th style="padding: 0px" colspan="2">
                                                     <h1>Required</h1>
-                                                    <small>These are the most basic settings you must configure. Without these, you won't be able to use Simple LDAP Login.</small>
+                                                    <small>These are the most basic settings you must configure. Without
+                                                        these, you won't be able to use Simple LDAP Login.
+                                                    </small>
                                                     <hr/>
                                                 </th>
                                             </tr>
@@ -119,6 +138,12 @@ if (isset($_GET['tab'])) {
                                             <tr>
                                                 <th scope="row" valign="top">Domain Name</th>
                                                 <td>
+                                                    <input type="hidden"
+                                                           name="<?php echo esc_attr($this->get_field_name('id')); ?>"
+                                                           value="<?php echo htmlspecialchars($domain_to_edit['id']); ?>"/>
+                                                    <input type="hidden"
+                                                           name="<?php echo esc_attr($this->get_field_name('enabled')); ?>"
+                                                           value="<?php echo htmlspecialchars($domain_to_edit['enabled']); ?>"/>
                                                     <input type="text"
                                                            name="<?php echo esc_attr($this->get_field_name('name')); ?>"
                                                            value="<?php echo htmlspecialchars($domain_to_edit['name']); ?>"/>
@@ -130,7 +155,9 @@ if (isset($_GET['tab'])) {
                                                     <input type="text"
                                                            name="<?php echo esc_attr($this->get_field_name('account_suffix')); ?>"
                                                            value="<?php echo htmlspecialchars($domain_to_edit['account_suffix']); ?>"/><br/>
-                                                    <small>Often the suffix of your e-mail address. Example: @gmail.com</small>
+                                                    <small>Often the suffix of your e-mail address. Example:
+                                                        @gmail.com
+                                                    </small>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -141,8 +168,9 @@ if (isset($_GET['tab'])) {
                                                            value="<?php echo esc_attr($domain_to_edit['base_dn']); ?>"/>
                                                     <br/>
                                                     <small>Example: For subdomain.domain.suffix, use
-                                                    DC=subdomain,DC=domain,DC=suffix.
-                                                        In most cases you should not specify an ou here.</small>
+                                                        DC=subdomain,DC=domain,DC=suffix.
+                                                        In most cases you should not specify an ou here.
+                                                    </small>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -194,9 +222,11 @@ if (isset($_GET['tab'])) {
                                                            name="<?php echo esc_attr($this->get_field_name('group_base_dn')); ?>"
                                                            value="<?php echo esc_attr($domain_to_edit['group_base_dn']); ?>"/>
                                                     <br/>
-                                                    <small>If you need to specify a different Base DN for group searches.
-                                                    Example: For subdomain.domain.suffix, use
-                                                        ou=groups,DC=subdomain,DC=domain,DC=suffix.</small>
+                                                    <small>If you need to specify a different Base DN for group
+                                                        searches.
+                                                        Example: For subdomain.domain.suffix, use
+                                                        ou=groups,DC=subdomain,DC=domain,DC=suffix.
+                                                    </small>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -216,7 +246,8 @@ if (isset($_GET['tab'])) {
                                                            name="<?php echo esc_attr($this->get_field_name('ol_group')); ?>"
                                                            value="<?php echo esc_attr($domain_to_edit['ol_group']); ?>"/>
                                                     <br/>
-                                                    <small>In case your installation uses something other than <b>cn</b>;</small>
+                                                    <small>In case your installation uses something other than <b>cn</b>;
+                                                    </small>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -230,7 +261,9 @@ if (isset($_GET['tab'])) {
                                                                   value="true" <?php if (str_true($domain_to_edit['use_tls'])) echo "checked='checked'"; ?> />
                                                         Transport Layer Security.<br/>
                                                         <small>This feature is beta, very
-                                                            beta.</small></label>
+                                                            beta.
+                                                        </small>
+                                                    </label>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -262,9 +295,10 @@ if (isset($_GET['tab'])) {
                                                                   value="true" <?php if (str_true($domain_to_edit['search_sub_ous'])) echo "checked='checked'"; ?> />
                                                         Also search sub-OUs of Base DN.<br>
                                                         <small>For example, if the base DN is
-                                                        "ou=People,dc=example,dc=com", also search
-                                                        "ou=Staff,ou=People,dc=example,dc=com for
-                                                        uid=<i>username</i></small></label><br/>
+                                                            "ou=People,dc=example,dc=com", also search
+                                                            "ou=Staff,ou=People,dc=example,dc=com for
+                                                            uid=<i>username</i></small>
+                                                    </label><br/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -273,7 +307,9 @@ if (isset($_GET['tab'])) {
                                                     <input type="text"
                                                            name="<?php echo esc_attr($this->get_field_name('login_domain')); ?>"
                                                            value="<?php echo esc_attr($domain_to_edit['login_domain']); ?>"/><br/>
-                                                    <small>prefixes login names with this domain, f.i. mydomain\username</small>
+                                                    <small>prefixes login names with this domain, f.i.
+                                                        mydomain\username
+                                                    </small>
                                                 </td>
                                             </tr>
                                             </tbody>
@@ -292,7 +328,8 @@ if (isset($_GET['tab'])) {
                                             <tr>
                                                 <th style="padding: 0px" colspan="2">
                                                     <h1>Typical</h1>
-                                                    <small>These settings give you finer control over how logins work.</small>
+                                                    <small>These settings give you finer control over how logins work.
+                                                    </small>
                                                     <hr/>
                                                 </th>
                                             <tr>
@@ -341,15 +378,16 @@ if (isset($_GET['tab'])) {
 
                         </tbody>
                     </table>
-                    <p><input class="button-primary" type="submit" value="<?php echo $active_tab == 'domains-edit' ? 'Update domain settings' : 'Add domain'; ?>"/></p>
+                    <p><input class="button-primary" type="submit"
+                              value="<?php echo $active_tab == 'domains-edit' ? 'Update domain settings' : 'Add domain'; ?>"/>
+                    </p>
                 </form>
             </div>
         </div>
     <?php else: ?>
-        <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
-            <?php wp_nonce_field('save_sll_settings', 'save_the_sll'); ?>
-
-            <?php if ($active_tab == "sso"): ?>
+        <?php if ($active_tab == "sso"): ?>
+            <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
+                <?php wp_nonce_field('save_sll_settings', 'save_the_sll'); ?>
                 <h3>Typical</h3>
                 <p>These are the basic settings for the Single Sign-on (SSO) between LDAP and Wordpress. For this
                     functionality, you must configure the Apache to use an authentication method in the Wordpress
@@ -423,7 +461,10 @@ if (isset($_GET['tab'])) {
                     </tbody>
                 </table>
                 <p><input class="button-primary" type="submit" value="Save Settings"/></p>
-            <?php elseif ($active_tab == "user"): ?>
+            </form>
+        <?php elseif ($active_tab == "user"): ?>
+            <form method="post" action="<?php echo str_replace('%7E', '~', $_SERVER['REQUEST_URI']); ?>">
+                <?php wp_nonce_field('update_user_settings', 'save_the_cll'); ?>
                 <h3>User Data</h3>
                 <p>These settings give you control over which LDAP attributes are used for user creation.</p>
                 <table class="form-table" style="margin-bottom: 20px;">
@@ -518,32 +559,32 @@ if (isset($_GET['tab'])) {
                     </tbody>
                 </table>
                 <p><input class="button-primary" type="submit" value="Save Settings"/></p>
-            <?php else: ?>
-                <h3>Help</h3>
-                <p>Here's a brief primer on how to effectively use and test Simple LDAP Login.</p>
-                <h4>SSO (Single Sign-on)</h4>
-                <p>For this functionality, you must configure the Apache to use an authentication method in the
-                    Wordpress Directory.</p>
-                <ul>
-                    <li>For Debian/Apache, you can follow the steps described <a target="_blank"
-                                                                                 title="Configuring SSO in Debian/Apache"
-                                                                                 href="https://github.com/MP-ES/simple-ldap-login/blob/master/ssoDebian.md">here</a>.
-                    </li>
-                    <li>For CentOS/Apache, you can follow the steps described <a target="_blank"
-                                                                                 title="Configuring SSO in CentOS/Apache"
-                                                                                 href="https://github.com/MP-ES/simple-ldap-login/blob/master/ssoCentOS.md">here</a>.
-                    </li>
-                </ul>
-                <h4>Testing</h4>
-                <p>The most effective way to test logins is to use two browsers. In other words, keep the WordPress
-                    Dashboard open in Chrome, and use Firefox to try logging in. This will give you real time feedback
-                    on your settings and prevent you from inadvertently locking yourself out.</p>
-                <h4>Which raises the question, what happens if I get locked out?</h4>
-                <p>If you accidentally lock yourself out, the easiest way to get back in is to rename
-                    <strong><?php echo plugin_dir_path(__FILE__); ?></strong> to something else and then refresh.
-                    WordPress will detect the change and disable Simple LDAP Login. You can then rename the folder back
-                    to its previous name.</p>
-            <?php endif; ?>
-        </form>
+            </form>
+        <?php else: ?>
+            <h3>Help</h3>
+            <p>Here's a brief primer on how to effectively use and test Simple LDAP Login.</p>
+            <h4>SSO (Single Sign-on)</h4>
+            <p>For this functionality, you must configure the Apache to use an authentication method in the
+                Wordpress Directory.</p>
+            <ul>
+                <li>For Debian/Apache, you can follow the steps described <a target="_blank"
+                                                                             title="Configuring SSO in Debian/Apache"
+                                                                             href="https://github.com/MP-ES/simple-ldap-login/blob/master/ssoDebian.md">here</a>.
+                </li>
+                <li>For CentOS/Apache, you can follow the steps described <a target="_blank"
+                                                                             title="Configuring SSO in CentOS/Apache"
+                                                                             href="https://github.com/MP-ES/simple-ldap-login/blob/master/ssoCentOS.md">here</a>.
+                </li>
+            </ul>
+            <h4>Testing</h4>
+            <p>The most effective way to test logins is to use two browsers. In other words, keep the WordPress
+                Dashboard open in Chrome, and use Firefox to try logging in. This will give you real time feedback
+                on your settings and prevent you from inadvertently locking yourself out.</p>
+            <h4>Which raises the question, what happens if I get locked out?</h4>
+            <p>If you accidentally lock yourself out, the easiest way to get back in is to rename
+                <strong><?php echo plugin_dir_path(__FILE__); ?></strong> to something else and then refresh.
+                WordPress will detect the change and disable Simple LDAP Login. You can then rename the folder back
+                to its previous name.</p>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
